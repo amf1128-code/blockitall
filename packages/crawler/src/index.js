@@ -5,10 +5,10 @@ import { loadConfig } from './config.js';
 import { TwitterClient } from './twitter.js';
 import { Database } from './db.js';
 import {
-  followerRatio,
-  accountAge,
-  profileCompleteness,
+  bioKeywords,
+  linkAnalysis,
   tweetPatterns,
+  replySpam,
   computeScore,
 } from './detectors.js';
 
@@ -29,17 +29,23 @@ async function main() {
   if (!config.dryRun) {
     listId = await db.getOrCreateList(
       config.targetListSlug,
-      'Spam & Bot Accounts',
-      'Automatically detected spam and bot accounts'
+      'Porn & OnlyFans Spam',
+      'Automatically detected porn spam and OnlyFans bot accounts'
     );
   }
 
-  // Search for suspicious accounts using spam-related queries
+  // Search for porn/OnlyFans spam accounts
   const searchQueries = [
     'onlyfans link in bio -is:retweet',
-    'free nudes dm me -is:retweet',
-    'follow for follow f4f -is:retweet',
-    'crypto airdrop claim now -is:retweet',
+    'fansly subscribe -is:retweet',
+    'free nudes dm -is:retweet',
+    'chudai video -is:retweet',
+    'desi bhabhi sex -is:retweet',
+    'cum tribute dm -is:retweet',
+    'check my bio 18+ -is:retweet',
+    'nude video call -is:retweet',
+    'premium snap add me -is:retweet',
+    'leaked nudes link -is:retweet',
   ];
 
   const candidateUsers = new Map(); // handle -> user object
@@ -111,10 +117,10 @@ async function main() {
 
     // Run all detectors
     const detectorResults = {
-      followerRatio: followerRatio(user),
-      accountAge: accountAge(user),
-      profileCompleteness: profileCompleteness(user),
+      bioKeywords: bioKeywords(user),
+      linkAnalysis: linkAnalysis(user, tweets),
       tweetPatterns: tweetPatterns(tweets),
+      replySpam: replySpam(tweets),
     };
 
     const { score, reasons } = computeScore(detectorResults);
