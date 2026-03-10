@@ -35,6 +35,7 @@ async function main() {
   const db = new Database(config.supabaseUrl, config.supabaseKey);
 
   console.log('BlockItAll Crawler');
+  console.log(`Twitter credentials: username=${config.twitterUsername ? '✓ set' : '✗ MISSING'}, password=${config.twitterPassword ? '✓ set' : '✗ MISSING'}`);
   console.log(`Target list: ${config.targetListSlug}`);
   console.log(`Thresholds: auto-approve=${config.autoApproveThreshold}, review=${config.reviewThreshold}`);
   console.log(`Scan limit: ${config.scanLimit}`);
