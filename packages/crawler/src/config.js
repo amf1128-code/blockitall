@@ -22,13 +22,13 @@ export function loadConfig() {
     targetListSlug: process.env.TARGET_LIST_SLUG || 'spam-bots',
 
     // Scoring thresholds
-    autoApproveThreshold: parseFloat(process.env.AUTO_APPROVE_THRESHOLD) || 0.9,
-    reviewThreshold: parseFloat(process.env.REVIEW_THRESHOLD) || 0.6,
+    autoApproveThreshold: parseFloat(process.env.AUTO_APPROVE_THRESHOLD) || 0.75,
+    reviewThreshold: parseFloat(process.env.REVIEW_THRESHOLD) || 0.4,
 
     // Crawl settings
-    scanLimit: parseInt(process.env.SCAN_LIMIT, 10) || 200,
-    maxDepth: parseInt(process.env.MAX_CRAWL_DEPTH, 10) || 2,       // how many hops from seed
-    delayMs: parseInt(process.env.CRAWL_DELAY_MS, 10) || 3000,      // delay between requests
+    scanLimit: parseInt(process.env.SCAN_LIMIT, 10) || 500,
+    maxDepth: parseInt(process.env.MAX_CRAWL_DEPTH, 10) || 3,       // how many hops from seed
+    delayMs: parseInt(process.env.CRAWL_DELAY_MS, 10) || 1500,      // delay between requests
     replyPageSize: parseInt(process.env.REPLY_PAGE_SIZE, 10) || 100, // replies to scan per tweet
 
     // Seed accounts — known spam handles to start graph crawling from.
@@ -36,14 +36,9 @@ export function loadConfig() {
     // The crawler will explore their followers/following to find more.
     // Default seeds are hardcoded; env var adds additional ones.
     seedAccounts: [
-      'saifisntsafefw',
-      'teamhojabiworld',
-      'misslexa_ph',
-      'vixly__',
-      'livvyalex',
-      'jasmine_baanks',
-      'ruine_d0ll',
-      'gooneddummy',
+      // Rotate seeds regularly — suspended/deleted accounts waste API calls.
+      // These are active spam-type accounts discovered from network crawling.
+      // Add new seeds via SEED_ACCOUNTS env var without code changes.
       ...parseSeedAccounts(process.env.SEED_ACCOUNTS),
     ],
 

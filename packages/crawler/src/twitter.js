@@ -108,7 +108,8 @@ export class TwitterClient {
       const scraper = await this._getScraper();
       const followers = [];
       for await (const profile of scraper.getFollowers(userId, limit)) {
-        followers.push(this._normalizeProfile(profile));
+        const normalized = this._normalizeProfile(profile);
+        if (normalized.username) followers.push(normalized);
         if (followers.length >= limit) break;
       }
       await this._delay();
@@ -129,7 +130,8 @@ export class TwitterClient {
       const scraper = await this._getScraper();
       const following = [];
       for await (const profile of scraper.getFollowing(userId, limit)) {
-        following.push(this._normalizeProfile(profile));
+        const normalized = this._normalizeProfile(profile);
+        if (normalized.username) following.push(normalized);
         if (following.length >= limit) break;
       }
       await this._delay();
@@ -216,18 +218,26 @@ export class TwitterClient {
   // ---------------------------------------------------------------------------
 
   _normalizeProfile(profile) {
+    // v0.21.1 scraper uses different field names depending on the endpoint.
+    // getProfile() returns { username }, getFollowers/getFollowing() may return
+    // { screenName } or nested { legacy: { screen_name } }.
+    const username = (
+      profile.username || profile.screenName || profile.screen_name ||
+      profile.legacy?.screen_name || ''
+    ).toLowerCase();
+
     return {
-      id: profile.userId || profile.id || profile.id_str,
-      username: (profile.username || profile.screen_name || '').toLowerCase(),
-      name: profile.name || profile.displayName || '',
-      description: profile.biography || profile.description || '',
-      followersCount: profile.followersCount ?? profile.followers_count ?? 0,
-      followingCount: profile.followingCount ?? profile.friends_count ?? 0,
-      tweetCount: profile.statusesCount ?? profile.statuses_count ?? 0,
-      createdAt: profile.joined || profile.created_at || null,
+      id: profile.userId || profile.id || profile.id_str || profile.rest_id,
+      username,
+      name: profile.name || profile.displayName || profile.legacy?.name || '',
+      description: profile.biography || profile.description || profile.legacy?.description || '',
+      followersCount: profile.followersCount ?? profile.followers_count ?? profile.legacy?.followers_count ?? 0,
+      followingCount: profile.followingCount ?? profile.friends_count ?? profile.legacy?.friends_count ?? 0,
+      tweetCount: profile.statusesCount ?? profile.statuses_count ?? profile.legacy?.statuses_count ?? 0,
+      createdAt: profile.joined || profile.created_at || profile.legacy?.created_at || null,
       verified: profile.isVerified ?? profile.verified ?? false,
-      possiblySensitive: profile.possiblySensitive ?? profile.possibly_sensitive ?? false,
-      profileImageUrl: profile.avatar || profile.profile_image_url || null,
+      possiblySensitive: profile.possiblySensitive ?? profile.possibly_sensitive ?? profile.legacy?.possibly_sensitive ?? false,
+      profileImageUrl: profile.avatar || profile.profile_image_url || profile.legacy?.profile_image_url_https || null,
     };
   }
 

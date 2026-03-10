@@ -106,13 +106,13 @@ async function main() {
 
         // Get followers and following — these are the network to explore
         try {
-          const followers = await twitter.getFollowers(profile.id, 50);
+          const followers = await twitter.getFollowers(profile.id, 100);
           console.log(`    Found ${followers.length} followers`);
           for (const f of followers) {
             if (!visited.has(f.username) && candidates.size + queue.length < config.scanLimit * 2) {
               // Quick pre-filter: only queue accounts that look suspicious from profile alone
               const quickScore = quickProfileCheck(f);
-              if (quickScore > 0.3) {
+              if (quickScore > 0.2) {
                 candidates.set(f.username, { profile: f, tweets: [] });
                 queue.push({ handle: f.username, depth: depth + 1 });
               }
@@ -123,12 +123,12 @@ async function main() {
         }
 
         try {
-          const following = await twitter.getFollowing(profile.id, 50);
+          const following = await twitter.getFollowing(profile.id, 100);
           console.log(`    Found ${following.length} following`);
           for (const f of following) {
             if (!visited.has(f.username) && candidates.size + queue.length < config.scanLimit * 2) {
               const quickScore = quickProfileCheck(f);
-              if (quickScore > 0.3) {
+              if (quickScore > 0.2) {
                 candidates.set(f.username, { profile: f, tweets: [] });
                 queue.push({ handle: f.username, depth: depth + 1 });
               }
