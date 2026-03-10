@@ -53,7 +53,7 @@ CREATE POLICY "Admins can read all blocked accounts"
 
 CREATE POLICY "Admins can manage blocked accounts"
   ON blocked_accounts FOR INSERT
-  USING (is_admin());
+  WITH CHECK (is_admin());
 
 CREATE POLICY "Admins can update blocked accounts"
   ON blocked_accounts FOR UPDATE
