@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlockItAll — Take Back Your Twitter Feed</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2e3f;
+      --text: #e4e4e7;
+      --muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #818cf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 1.5rem; }
+    header {
+      text-align: center;
+      padding: 4rem 0 3rem;
+    }
+    header h1 { font-size: 3rem; margin-bottom: 1rem; }
+    header p { font-size: 1.25rem; color: var(--muted); max-width: 600px; margin: 0 auto; }
+    .cta {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.75rem 2rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .cta:hover { background: var(--primary-hover); }
+    section {
+      padding: 3rem 0;
+      border-top: 1px solid var(--border);
+    }
+    section h2 { font-size: 1.75rem; margin-bottom: 1rem; }
+    section p, section li { color: var(--muted); margin-bottom: 0.75rem; }
+    section ul { padding-left: 1.5rem; }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .feature-card h3 { margin-bottom: 0.5rem; font-size: 1.1rem; }
+    .feature-card p { font-size: 0.9rem; }
+    .security-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+    .security-box h3 { margin-bottom: 0.75rem; }
+    code {
+      background: var(--surface);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      margin: 2rem 0;
+    }
+    .stats div { text-align: center; }
+    .stats .num { font-size: 2.5rem; font-weight: 700; color: var(--primary); }
+    .stats .label { font-size: 0.85rem; color: var(--muted); }
+    footer {
+      text-align: center;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+    .mobile-notice {
+      background: #78350f;
+      color: #fcd34d;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    @media (max-width: 600px) {
+      header h1 { font-size: 2rem; }
+      .stats { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>BlockItAll</h1>
+      <p>Take back your Twitter feed. Block thousands of porn bots, spam accounts, and engagement farmers in one click.</p>
+      <a href="#install" class="cta">Install the Extension</a>
+      <div class="stats" id="list-stats">
+        <div><div class="num" id="stat-accounts">--</div><div class="label">Accounts on block lists</div></div>
+        <div><div class="num" id="stat-lists">--</div><div class="label">Curated lists</div></div>
+      </div>
+    </header>
+
+    <section>
+      <h2>How It Works</h2>
+      <div class="card-grid">
+        <div class="feature-card">
+          <h3>1. Install</h3>
+          <p>Add the BlockItAll extension to Chrome or Firefox. It takes 10 seconds.</p>
+        </div>
+        <div class="feature-card">
+          <h3>2. Subscribe</h3>
+          <p>Choose which block lists you want — porn bots, engagement farmers, or all of them.</p>
+        </div>
+        <div class="feature-card">
+          <h3>3. Block</h3>
+          <p>Hit "Sync & Block" and the extension blocks every account on your lists. It runs in the background — you can keep browsing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="security">
+      <h2>Your Account Is Safe</h2>
+      <p>We know asking you to install a browser extension is a big trust ask. Here's exactly how BlockItAll works — no hand-waving.</p>
+
+      <div class="security-box">
+        <h3>How is this different from giving you my password?</h3>
+        <p>When you log into Twitter, your browser stores a small piece of data called a <strong>session token</strong> in its cookies. This token tells Twitter "this browser is logged in as @you" — it's what keeps you signed in between page loads.</p>
+        <p>The BlockItAll extension reads this token <strong>locally from your browser's cookies</strong> — the same way Twitter's own website reads it. The token <strong>never leaves your computer</strong>. It's never sent to our servers or anywhere else. The extension uses it to send block requests directly from your browser to Twitter, exactly as if you were clicking "Block" on each profile yourself.</p>
+        <p>Unlike your password, a session token can't be used to change your password, email, or security settings. And if you ever want to revoke it, just log out of Twitter — the token becomes invalid immediately.</p>
+      </div>
+
+      <div class="security-box">
+        <h3>How to verify the code yourself</h3>
+        <p>BlockItAll is <strong>100% open source</strong>. Every line of code the extension runs on your browser is public on GitHub.</p>
+        <ul>
+          <li>Read the source code on <a href="#">GitHub</a></li>
+          <li>Search for <code>fetch(</code> and <code>XMLHttpRequest</code> in the extension code — you'll see that the only outbound requests go to <code>twitter.com</code>/<code>x.com</code> (for blocking) and our public block list API (for downloading the list of handles to block)</li>
+          <li>The extension never sends your session token, cookies, or any auth data anywhere except directly to Twitter</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p>BlockItAll is currently available as a desktop browser extension.</p>
+      <ul>
+        <li><strong>Chrome:</strong> <a href="#">Chrome Web Store</a> (coming soon)</li>
+        <li><strong>Firefox:</strong> <a href="#">Firefox Add-ons</a> (coming soon)</li>
+      </ul>
+      <div class="mobile-notice">
+        Mobile support is coming soon. For now, BlockItAll requires a desktop browser (Chrome or Firefox).
+      </div>
+    </section>
+
+    <section>
+      <h2>Privacy Policy</h2>
+      <p><strong>What we collect:</strong></p>
+      <ul>
+        <li>If you opt in: which block list you subscribe to and anonymized block action counts (for aggregate stats only)</li>
+      </ul>
+      <p><strong>What we never collect:</strong></p>
+      <ul>
+        <li>Your Twitter session token, cookies, or any credentials</li>
+        <li>Your browsing history</li>
+        <li>Your Twitter data (tweets, DMs, followers, etc.)</li>
+        <li>Any personally identifiable information beyond your email (if you create an account for community submissions)</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>BlockItAll is open source. <a href="#">View on GitHub</a> &middot; <a href="#">Privacy Policy</a></p>
+      <p style="margin-top: 0.5rem;">MIT License</p>
+    </footer>
+  </div>
+
+  <script>
+    // Fetch live stats from the public API
+    (async function() {
+      try {
+        // Replace with your actual Supabase Edge Function URL
+        const API_URL = '';
+        if (!API_URL) return;
+
+        const res = await fetch(API_URL + '/lists');
+        if (!res.ok) return;
+        const lists = await res.json();
+
+        const totalAccounts = lists.reduce((sum, l) => sum + (l.account_count || 0), 0);
+        document.getElementById('stat-accounts').textContent = totalAccounts.toLocaleString();
+        document.getElementById('stat-lists').textContent = lists.length.toString();
+      } catch (e) {
+        // silently fail — stats just show "--"
+      }
+    })();
+  </script>
+</body>
+</html>

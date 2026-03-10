@@ -1,0 +1,61 @@
+-- Seed data for development/testing
+-- Run this AFTER migrations and AFTER creating an admin user in Supabase Auth
+
+-- NOTE: Replace 'YOUR_ADMIN_USER_ID' with the actual UUID of your admin user
+-- from Supabase Auth. You can find this in the Supabase dashboard under
+-- Authentication > Users.
+
+-- To use this seed file:
+-- 1. Create an account in your Supabase project (Authentication > Users > Add User)
+-- 2. Copy the user's UUID
+-- 3. Replace YOUR_ADMIN_USER_ID below
+-- 4. Run this SQL in the Supabase SQL Editor
+
+-- Uncomment and set your admin user ID:
+-- DO $$
+-- DECLARE
+--   admin_id UUID := 'YOUR_ADMIN_USER_ID';
+--   test_list_id UUID;
+--   porn_list_id UUID;
+--   acct1_id UUID;
+--   acct2_id UUID;
+--   acct3_id UUID;
+-- BEGIN
+--   -- Set up admin role
+--   INSERT INTO user_roles (user_id, role) VALUES (admin_id, 'admin');
+--
+--   -- Create the main block list
+--   INSERT INTO lists (id, name, slug, description, is_public, owner_id)
+--   VALUES (
+--     gen_random_uuid(), 'Porn Bots', 'porn-bots',
+--     'Known porn bot accounts, OnlyFans spam, and adult content promoters.',
+--     true, admin_id
+--   ) RETURNING id INTO porn_list_id;
+--
+--   -- Create the test list
+--   INSERT INTO lists (id, name, slug, description, is_public, owner_id)
+--   VALUES (
+--     gen_random_uuid(), 'Test List', 'test-list',
+--     'Test list for development. Contains throwaway accounts only.',
+--     true, admin_id
+--   ) RETURNING id INTO test_list_id;
+--
+--   -- Add some test accounts (use clearly fake/inactive handles)
+--   INSERT INTO blocked_accounts (id, twitter_handle, reason, added_by, source, status)
+--   VALUES (gen_random_uuid(), 'test_bot_account_1', 'Test account for development', admin_id, 'manual', 'active')
+--   RETURNING id INTO acct1_id;
+--
+--   INSERT INTO blocked_accounts (id, twitter_handle, reason, added_by, source, status)
+--   VALUES (gen_random_uuid(), 'test_bot_account_2', 'Test account for development', admin_id, 'manual', 'active')
+--   RETURNING id INTO acct2_id;
+--
+--   INSERT INTO blocked_accounts (id, twitter_handle, reason, added_by, source, status)
+--   VALUES (gen_random_uuid(), 'test_bot_account_3', 'Test account for development', admin_id, 'manual', 'active')
+--   RETURNING id INTO acct3_id;
+--
+--   -- Add test accounts to the test list
+--   INSERT INTO list_memberships (list_id, account_id) VALUES
+--     (test_list_id, acct1_id),
+--     (test_list_id, acct2_id),
+--     (test_list_id, acct3_id);
+-- END $$;
