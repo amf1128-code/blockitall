@@ -20,6 +20,7 @@ export class TwitterClient {
     this.requestCount = 0;
     this._scraper = null;
     this._loggedIn = false;
+    this._authAttempted = false;
   }
 
   /**
@@ -27,14 +28,17 @@ export class TwitterClient {
    * Tries cookie-based auth first (most reliable), then username/password login.
    */
   async _getScraper() {
-    if (this._scraper && this._loggedIn) return this._scraper;
+    if (this._scraper && this._authAttempted) return this._scraper;
     const { Scraper } = await import('@the-convocation/twitter-scraper');
     this._scraper = new Scraper();
 
     // Try cookie-based auth first (bypasses anti-bot login protection)
     if (this.twitterCookies?.authToken && this.twitterCookies?.ct0) {
       try {
+        // Set cookies for both .x.com and .twitter.com — the scraper uses twitter.com internally
         const cookieStrings = [
+          `auth_token=${this.twitterCookies.authToken}; Domain=.twitter.com; Path=/; Secure; HttpOnly`,
+          `ct0=${this.twitterCookies.ct0}; Domain=.twitter.com; Path=/; Secure`,
           `auth_token=${this.twitterCookies.authToken}; Domain=.x.com; Path=/; Secure; HttpOnly`,
           `ct0=${this.twitterCookies.ct0}; Domain=.x.com; Path=/; Secure`,
         ];
@@ -42,6 +46,7 @@ export class TwitterClient {
         const loggedIn = await this._scraper.isLoggedIn();
         if (loggedIn) {
           this._loggedIn = true;
+          this._authAttempted = true;
           console.log('  Scraper authenticated via cookies');
           return this._scraper;
         }
@@ -66,6 +71,7 @@ export class TwitterClient {
       console.warn('  Set TWITTER_AUTH_TOKEN and TWITTER_CT0 in .env (or TWITTER_USERNAME/PASSWORD)');
     }
 
+    this._authAttempted = true;
     return this._scraper;
   }
 
