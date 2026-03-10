@@ -33,7 +33,7 @@ async function main() {
     twitterCookies: config.twitterAuthToken ? { authToken: config.twitterAuthToken, ct0: config.twitterCt0 } : null,
     delayMs: config.delayMs,
   });
-  const db = new Database(config.supabaseUrl, config.supabaseKey);
+  const db = new Database(config.supabaseUrl, config.supabaseKey, config.crawlerUserId);
 
   console.log('BlockItAll Crawler');
   console.log(`Twitter auth: cookies=${config.twitterAuthToken ? '✓ set' : '✗ not set'}, username=${config.twitterUsername ? '✓ set' : '✗ not set'}`);

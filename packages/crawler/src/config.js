@@ -18,6 +18,10 @@ export function loadConfig() {
     // Twitter API (optional — used as fallback when scraping fails)
     twitterBearerToken: process.env.TWITTER_BEARER_TOKEN || null,
 
+    // Crawler identity — the Supabase auth user ID that owns crawler-created records.
+    // This must be a valid user in auth.users (e.g. your admin account).
+    crawlerUserId: requiredEnv('CRAWLER_USER_ID'),
+
     // Target list in BlockItAll
     targetListSlug: process.env.TARGET_LIST_SLUG || 'spam-bots',
 

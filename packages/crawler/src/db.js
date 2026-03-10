@@ -3,8 +3,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 export class Database {
-  constructor(supabaseUrl, supabaseKey) {
+  constructor(supabaseUrl, supabaseKey, crawlerUserId) {
     this.client = createClient(supabaseUrl, supabaseKey);
+    this.crawlerUserId = crawlerUserId;
   }
 
   /**
@@ -23,7 +24,7 @@ export class Database {
     // Create new list
     const { data, error } = await this.client
       .from('lists')
-      .insert({ slug, name, description, is_public: true })
+      .insert({ slug, name, description, is_public: true, owner_id: this.crawlerUserId })
       .select('id')
       .single();
 
@@ -82,6 +83,7 @@ export class Database {
         twitter_id: twitterId || null,
         display_name: displayName || null,
         reason: reasons.join('; '),
+        added_by: this.crawlerUserId,
         source: 'crawler',
         status,
         metadata: {
