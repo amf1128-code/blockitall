@@ -1,0 +1,6 @@
+{
+  "name": "@blockitall/browser-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BlockItAll browser extension for bulk blocking on Twitter/X"
+}
