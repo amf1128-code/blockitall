@@ -1,5 +1,6 @@
-// Background service worker — handles syncing and blocking via messages from popup/content script
+// Background script — handles syncing and blocking via messages from popup/content script
 
+import { api } from './compat.js';
 import { fetchLists, fetchAllAccountsForList } from './api.js';
 import {
   getSubscriptions,
@@ -13,7 +14,7 @@ import {
 } from './storage.js';
 
 // Message handler — popup and content scripts communicate through here
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+api.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message).then(sendResponse).catch(err => {
     sendResponse({ error: err.message });
   });
@@ -120,7 +121,7 @@ async function runBlocks(dryRun = false) {
   await appendLog('info', `${isDryRun ? '[DRY RUN] ' : ''}Starting to block ${toBlock.length} accounts...`);
 
   // Find an active Twitter tab to send block commands to
-  const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+  const tabs = await api.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
   if (tabs.length === 0) {
     await appendLog('error', 'No Twitter/X tab found. Please open twitter.com or x.com first.');
     return { blocked: 0, failed: 0, skipped: 0, total: toBlock.length, error: 'No Twitter tab open' };
@@ -138,7 +139,7 @@ async function runBlocks(dryRun = false) {
       await appendLog('info', `[DRY RUN] Would block @${account.handle}`);
       skipped++;
       // Send progress
-      chrome.runtime.sendMessage({
+      api.runtime.sendMessage({
         type: 'BLOCK_PROGRESS',
         current: i + 1,
         total: toBlock.length,
@@ -150,7 +151,7 @@ async function runBlocks(dryRun = false) {
 
     try {
       // Send block command to the content script
-      const result = await chrome.tabs.sendMessage(tabId, {
+      const result = await api.tabs.sendMessage(tabId, {
         type: 'BLOCK_USER',
         handle: account.handle,
       });
@@ -169,7 +170,7 @@ async function runBlocks(dryRun = false) {
     }
 
     // Send progress update
-    chrome.runtime.sendMessage({
+    api.runtime.sendMessage({
       type: 'BLOCK_PROGRESS',
       current: i + 1,
       total: toBlock.length,
@@ -195,7 +196,7 @@ async function runBlocks(dryRun = false) {
  */
 async function checkTwitterSession() {
   try {
-    const cookies = await chrome.cookies.getAll({ domain: '.x.com' });
+    const cookies = await api.cookies.getAll({ domain: '.x.com' });
     const authCookie = cookies.find(c => c.name === 'auth_token' || c.name === 'ct0');
 
     if (authCookie) {
@@ -203,7 +204,7 @@ async function checkTwitterSession() {
     }
 
     // Also check twitter.com domain
-    const twitterCookies = await chrome.cookies.getAll({ domain: '.twitter.com' });
+    const twitterCookies = await api.cookies.getAll({ domain: '.twitter.com' });
     const twitterAuth = twitterCookies.find(c => c.name === 'auth_token' || c.name === 'ct0');
 
     if (twitterAuth) {
