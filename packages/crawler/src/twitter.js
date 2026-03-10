@@ -35,10 +35,10 @@ export class TwitterClient {
     // Try cookie-based auth first (bypasses anti-bot login protection)
     if (this.twitterCookies?.authToken && this.twitterCookies?.ct0) {
       try {
-        // The scraper makes requests to twitter.com internally, so cookies must use that domain
+        // Pass cookies without Domain — the scraper sets them against https://x.com internally
         const cookieStrings = [
-          `auth_token=${this.twitterCookies.authToken}; Domain=.twitter.com; Path=/; Secure; HttpOnly`,
-          `ct0=${this.twitterCookies.ct0}; Domain=.twitter.com; Path=/; Secure`,
+          `auth_token=${this.twitterCookies.authToken}; Path=/; Secure; HttpOnly`,
+          `ct0=${this.twitterCookies.ct0}; Path=/; Secure`,
         ];
         await this._scraper.setCookies(cookieStrings);
         const loggedIn = await this._scraper.isLoggedIn();
