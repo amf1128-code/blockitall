@@ -41,14 +41,12 @@ export class TwitterClient {
           `ct0=${this.twitterCookies.ct0}; Path=/; Secure`,
         ];
         await this._scraper.setCookies(cookieStrings);
-        const loggedIn = await this._scraper.isLoggedIn();
-        if (loggedIn) {
-          this._loggedIn = true;
-          this._authAttempted = true;
-          console.log('  Scraper authenticated via cookies');
-          return this._scraper;
-        }
-        console.warn('  Cookie auth failed — cookies may be expired');
+        // Skip isLoggedIn() check — it can fail even with valid cookies.
+        // If cookies are invalid, requests will return 401 and fall through to API fallback.
+        this._loggedIn = true;
+        this._authAttempted = true;
+        console.log('  Scraper cookies set — attempting authenticated requests');
+        return this._scraper;
       } catch (err) {
         console.warn(`  Cookie auth error: ${err.message}`);
       }
