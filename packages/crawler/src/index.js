@@ -30,12 +30,13 @@ async function main() {
     bearerToken: config.twitterBearerToken,
     twitterUsername: config.twitterUsername,
     twitterPassword: config.twitterPassword,
+    twitterCookies: config.twitterAuthToken ? { authToken: config.twitterAuthToken, ct0: config.twitterCt0 } : null,
     delayMs: config.delayMs,
   });
   const db = new Database(config.supabaseUrl, config.supabaseKey);
 
   console.log('BlockItAll Crawler');
-  console.log(`Twitter credentials: username=${config.twitterUsername ? '✓ set' : '✗ MISSING'}, password=${config.twitterPassword ? '✓ set' : '✗ MISSING'}`);
+  console.log(`Twitter auth: cookies=${config.twitterAuthToken ? '✓ set' : '✗ not set'}, username=${config.twitterUsername ? '✓ set' : '✗ not set'}`);
   console.log(`Target list: ${config.targetListSlug}`);
   console.log(`Thresholds: auto-approve=${config.autoApproveThreshold}, review=${config.reviewThreshold}`);
   console.log(`Scan limit: ${config.scanLimit}`);

@@ -7,7 +7,11 @@ export function loadConfig() {
     supabaseUrl: requiredEnv('SUPABASE_URL'),
     supabaseKey: requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
 
-    // Twitter credentials for scraper login (required — guest tokens no longer work)
+    // Twitter cookie-based auth (recommended — bypasses anti-bot login protection)
+    twitterAuthToken: process.env.TWITTER_AUTH_TOKEN || null,
+    twitterCt0: process.env.TWITTER_CT0 || null,
+
+    // Twitter credentials for scraper login (fallback if cookies not set)
     twitterUsername: process.env.TWITTER_USERNAME || null,
     twitterPassword: process.env.TWITTER_PASSWORD || null,
 

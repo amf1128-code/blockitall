@@ -11,10 +11,11 @@
  * The official API is used as a fallback for rate-limited or failed scrapes.
  */
 export class TwitterClient {
-  constructor({ bearerToken = null, twitterUsername = null, twitterPassword = null, delayMs = 3000 } = {}) {
+  constructor({ bearerToken = null, twitterUsername = null, twitterPassword = null, twitterCookies = null, delayMs = 3000 } = {}) {
     this.bearerToken = bearerToken;
     this.twitterUsername = twitterUsername;
     this.twitterPassword = twitterPassword;
+    this.twitterCookies = twitterCookies; // { authToken, ct0 }
     this.delayMs = delayMs;
     this.requestCount = 0;
     this._scraper = null;
@@ -22,15 +23,35 @@ export class TwitterClient {
   }
 
   /**
-   * Lazy-init the scraper with login.
-   * X/Twitter killed guest tokens — the scraper must log in with
-   * real credentials to access profiles, followers, and tweets.
+   * Lazy-init the scraper with authentication.
+   * Tries cookie-based auth first (most reliable), then username/password login.
    */
   async _getScraper() {
     if (this._scraper && this._loggedIn) return this._scraper;
     const { Scraper } = await import('@the-convocation/twitter-scraper');
     this._scraper = new Scraper();
 
+    // Try cookie-based auth first (bypasses anti-bot login protection)
+    if (this.twitterCookies?.authToken && this.twitterCookies?.ct0) {
+      try {
+        const cookieStrings = [
+          `auth_token=${this.twitterCookies.authToken}; Domain=.x.com; Path=/; Secure; HttpOnly`,
+          `ct0=${this.twitterCookies.ct0}; Domain=.x.com; Path=/; Secure`,
+        ];
+        await this._scraper.setCookies(cookieStrings);
+        const loggedIn = await this._scraper.isLoggedIn();
+        if (loggedIn) {
+          this._loggedIn = true;
+          console.log('  Scraper authenticated via cookies');
+          return this._scraper;
+        }
+        console.warn('  Cookie auth failed — cookies may be expired');
+      } catch (err) {
+        console.warn(`  Cookie auth error: ${err.message}`);
+      }
+    }
+
+    // Fall back to username/password login
     if (this.twitterUsername && this.twitterPassword) {
       try {
         await this._scraper.login(this.twitterUsername, this.twitterPassword);
@@ -40,9 +61,9 @@ export class TwitterClient {
         console.warn(`  Scraper login failed: ${err.message}`);
         console.warn('  Falling back to API-only mode');
       }
-    } else {
+    } else if (!this._loggedIn) {
       console.warn('  No Twitter credentials provided — scraper will not work.');
-      console.warn('  Set TWITTER_USERNAME and TWITTER_PASSWORD in .env');
+      console.warn('  Set TWITTER_AUTH_TOKEN and TWITTER_CT0 in .env (or TWITTER_USERNAME/PASSWORD)');
     }
 
     return this._scraper;
