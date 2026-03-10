@@ -1,0 +1,14 @@
+{
+  "name": "@blockitall/crawler",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Automated bot detection crawler for BlockItAll",
+  "type": "module",
+  "scripts": {
+    "crawl": "node src/index.js",
+    "crawl:dry-run": "DRY_RUN=true node src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0"
+  }
+}
