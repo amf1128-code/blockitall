@@ -26,7 +26,11 @@ export function loadConfig() {
     // Seed accounts — known spam handles to start graph crawling from.
     // These are discovered manually or from community submissions.
     // The crawler will explore their followers/following to find more.
-    seedAccounts: parseSeedAccounts(process.env.SEED_ACCOUNTS),
+    // Default seeds are hardcoded; env var adds additional ones.
+    seedAccounts: [
+      'saifisntsafefw',
+      ...parseSeedAccounts(process.env.SEED_ACCOUNTS),
+    ],
 
     // Viral tweet accounts to monitor replies on (e.g. big accounts that attract spam)
     replyTargetAccounts: parseList(process.env.REPLY_TARGET_ACCOUNTS) || [
