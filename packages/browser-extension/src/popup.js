@@ -1,5 +1,6 @@
 // Popup script — UI logic for the extension popup
 
+import { api } from './compat.js';
 import {
   getApiUrl,
   setApiUrl,
@@ -40,7 +41,7 @@ const clearDataBtn = document.getElementById('clear-data');
 const versionEl = document.getElementById('version');
 
 // Set version
-const manifest = chrome.runtime.getManifest();
+const manifest = api.runtime.getManifest();
 versionEl.textContent = `v${manifest.version}`;
 
 // Initialize popup
@@ -67,7 +68,7 @@ async function checkTwitterConnection() {
   connectionText.textContent = 'Checking Twitter connection...';
 
   try {
-    const result = await chrome.runtime.sendMessage({ type: 'CHECK_TWITTER_SESSION' });
+    const result = await api.runtime.sendMessage({ type: 'CHECK_TWITTER_SESSION' });
     if (result.connected) {
       connectionStatus.className = 'status-bar connected';
       connectionText.textContent = 'Connected to Twitter/X';
@@ -86,7 +87,7 @@ async function loadLists() {
   listsContainer.innerHTML = '<p class="muted">Loading lists...</p>';
 
   try {
-    const lists = await chrome.runtime.sendMessage({ type: 'FETCH_LISTS' });
+    const lists = await api.runtime.sendMessage({ type: 'FETCH_LISTS' });
 
     if (lists.error) {
       listsContainer.innerHTML = `<p class="error">${lists.error}</p>`;
@@ -253,7 +254,7 @@ syncBtn.addEventListener('click', async () => {
   syncBtn.textContent = 'Syncing...';
 
   try {
-    const result = await chrome.runtime.sendMessage({ type: 'SYNC_SUBSCRIPTIONS' });
+    const result = await api.runtime.sendMessage({ type: 'SYNC_SUBSCRIPTIONS' });
     if (result.error) {
       await appendLog('error', `Sync failed: ${result.error}`);
     }
@@ -279,7 +280,7 @@ blockBtn.addEventListener('click', async () => {
   progressText.textContent = 'Starting...';
 
   try {
-    const result = await chrome.runtime.sendMessage({
+    const result = await api.runtime.sendMessage({
       type: 'RUN_BLOCKS',
       dryRun: isDryRun,
     });
@@ -300,7 +301,7 @@ blockBtn.addEventListener('click', async () => {
 });
 
 // Listen for progress updates from background
-chrome.runtime.onMessage.addListener((message) => {
+api.runtime.onMessage.addListener((message) => {
   if (message.type === 'BLOCK_PROGRESS') {
     const pct = Math.round((message.current / message.total) * 100);
     progressFill.style.width = `${pct}%`;

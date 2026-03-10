@@ -1,4 +1,6 @@
-// Storage layer — wraps chrome.storage.local for extension state
+// Storage layer — wraps browser.storage.local for extension state
+
+import { api } from './compat.js';
 
 const KEYS = {
   API_URL: 'apiUrl',
@@ -10,21 +12,21 @@ const KEYS = {
 };
 
 export async function getApiUrl() {
-  const result = await chrome.storage.local.get(KEYS.API_URL);
+  const result = await api.storage.local.get(KEYS.API_URL);
   return result[KEYS.API_URL] || null;
 }
 
 export async function setApiUrl(url) {
-  await chrome.storage.local.set({ [KEYS.API_URL]: url });
+  await api.storage.local.set({ [KEYS.API_URL]: url });
 }
 
 export async function getSubscriptions() {
-  const result = await chrome.storage.local.get(KEYS.SUBSCRIPTIONS);
+  const result = await api.storage.local.get(KEYS.SUBSCRIPTIONS);
   return result[KEYS.SUBSCRIPTIONS] || {};
 }
 
 export async function setSubscriptions(subs) {
-  await chrome.storage.local.set({ [KEYS.SUBSCRIPTIONS]: subs });
+  await api.storage.local.set({ [KEYS.SUBSCRIPTIONS]: subs });
 }
 
 export async function subscribe(list) {
@@ -51,16 +53,16 @@ export async function unsubscribe(slug) {
 }
 
 export async function getSyncedAccounts() {
-  const result = await chrome.storage.local.get(KEYS.SYNCED_ACCOUNTS);
+  const result = await api.storage.local.get(KEYS.SYNCED_ACCOUNTS);
   return result[KEYS.SYNCED_ACCOUNTS] || {};
 }
 
 export async function setSyncedAccounts(accounts) {
-  await chrome.storage.local.set({ [KEYS.SYNCED_ACCOUNTS]: accounts });
+  await api.storage.local.set({ [KEYS.SYNCED_ACCOUNTS]: accounts });
 }
 
 export async function getBlockedHandles() {
-  const result = await chrome.storage.local.get(KEYS.BLOCKED_HANDLES);
+  const result = await api.storage.local.get(KEYS.BLOCKED_HANDLES);
   return new Set(result[KEYS.BLOCKED_HANDLES] || []);
 }
 
@@ -69,24 +71,24 @@ export async function addBlockedHandles(handles) {
   for (const h of handles) {
     existing.add(h);
   }
-  await chrome.storage.local.set({ [KEYS.BLOCKED_HANDLES]: [...existing] });
+  await api.storage.local.set({ [KEYS.BLOCKED_HANDLES]: [...existing] });
 }
 
 export async function getSettings() {
-  const result = await chrome.storage.local.get(KEYS.SETTINGS);
+  const result = await api.storage.local.get(KEYS.SETTINGS);
   return result[KEYS.SETTINGS] || { dryRun: false };
 }
 
 export async function updateSettings(partial) {
   const current = await getSettings();
-  await chrome.storage.local.set({ [KEYS.SETTINGS]: { ...current, ...partial } });
+  await api.storage.local.set({ [KEYS.SETTINGS]: { ...current, ...partial } });
 }
 
 // Log management
 const MAX_LOG_ENTRIES = 200;
 
 export async function getLog() {
-  const result = await chrome.storage.local.get(KEYS.LOG);
+  const result = await api.storage.local.get(KEYS.LOG);
   return result[KEYS.LOG] || [];
 }
 
@@ -95,13 +97,13 @@ export async function appendLog(level, message) {
   log.push({ timestamp: new Date().toISOString(), level, message });
   // Keep only the most recent entries
   const trimmed = log.slice(-MAX_LOG_ENTRIES);
-  await chrome.storage.local.set({ [KEYS.LOG]: trimmed });
+  await api.storage.local.set({ [KEYS.LOG]: trimmed });
 }
 
 export async function clearLog() {
-  await chrome.storage.local.set({ [KEYS.LOG]: [] });
+  await api.storage.local.set({ [KEYS.LOG]: [] });
 }
 
 export async function clearAllData() {
-  await chrome.storage.local.clear();
+  await api.storage.local.clear();
 }

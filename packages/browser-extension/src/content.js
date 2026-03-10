@@ -1,6 +1,8 @@
 // Content script — runs on twitter.com / x.com
 // Handles blocking users via Twitter's internal API using the user's existing session.
 
+const extensionApi = globalThis.browser || globalThis.chrome;
+
 // Extract CSRF token from cookies
 function getCsrfToken() {
   const match = document.cookie.match(/ct0=([^;]+)/);
@@ -104,7 +106,7 @@ async function getUserId(handle, csrfToken) {
 }
 
 // Listen for block commands from the background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'BLOCK_USER') {
     blockUser(message.handle).then(sendResponse);
     return true; // async

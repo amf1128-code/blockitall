@@ -13,7 +13,14 @@
   ],
   "background": {
     "service_worker": "src/background.js",
+    "scripts": ["src/background.js"],
     "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "blockitall@blockitall.com",
+      "strict_min_version": "109.0"
+    }
   },
   "content_scripts": [
     {
