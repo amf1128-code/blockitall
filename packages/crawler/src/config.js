@@ -31,32 +31,15 @@ export function loadConfig() {
 
     // Crawl settings
     scanLimit: parseInt(process.env.SCAN_LIMIT, 10) || 500,
-    maxDepth: parseInt(process.env.MAX_CRAWL_DEPTH, 10) || 3,       // how many hops from seed
-    delayMs: parseInt(process.env.CRAWL_DELAY_MS, 10) || 1500,      // delay between requests
-    replyPageSize: parseInt(process.env.REPLY_PAGE_SIZE, 10) || 100, // replies to scan per tweet
+    delayMs: parseInt(process.env.CRAWL_DELAY_MS, 10) || 1500,
 
-    // Seed accounts — known spam handles to start graph crawling from.
-    // These are discovered manually or from community submissions.
-    // The crawler will explore their followers/following to find more.
-    // Default seeds are hardcoded; env var adds additional ones.
-    seedAccounts: [
-      // Hardcoded fallback seeds — ensures the crawler always has something to start with.
-      // Add more via SEED_ACCOUNTS env var. Rotate regularly as accounts get suspended.
-      'saifisntsafefw',
-      ...parseSeedAccounts(process.env.SEED_ACCOUNTS),
-    ],
-
-    // Viral tweet accounts to monitor replies on (e.g. big accounts that attract spam)
-    replyTargetAccounts: parseList(process.env.REPLY_TARGET_ACCOUNTS) || [
-      'elonmusk', 'taylorswift13', 'BillGates', 'TheRock',
-      'Cristiano', 'katyperry', 'rabornjason',
-    ],
+    // Network expansion — try to crawl following lists of confirmed bots.
+    // This uses getFollowing which has intermittent 404s (Twitter rotates
+    // GraphQL hashes). Enabled by default but fails gracefully.
+    enableNetworkExpansion: process.env.ENABLE_NETWORK_EXPANSION !== 'false',
 
     // Mode flags
     dryRun: process.env.DRY_RUN === 'true',
-    enableGraphCrawl: process.env.ENABLE_GRAPH_CRAWL !== 'false',   // on by default
-    enableReplyScan: process.env.ENABLE_REPLY_SCAN !== 'false',     // on by default
-    enableSearch: process.env.ENABLE_SEARCH === 'true',             // off by default (API limits)
   };
 }
 
@@ -64,14 +47,4 @@ function requiredEnv(name) {
   const val = process.env[name];
   if (!val) throw new Error(`Missing required env var: ${name}`);
   return val;
-}
-
-function parseList(val) {
-  if (!val) return null;
-  return val.split(',').map(s => s.trim()).filter(Boolean);
-}
-
-function parseSeedAccounts(val) {
-  if (!val) return [];
-  return val.split(',').map(s => s.trim().replace(/^@/, '').toLowerCase()).filter(Boolean);
 }

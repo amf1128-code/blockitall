@@ -1,12 +1,17 @@
-// Crawler entry point — discovers spam accounts via graph crawling and reply scanning.
+// Crawler entry point — discovers spam accounts via search and profile analysis.
 //
 // Discovery strategy (in priority order):
-// 1. GRAPH CRAWL: Start from known spam accounts (seeds), crawl their
-//    followers/following to find bot rings. Bypasses search censorship entirely.
-// 2. REPLY SCAN: Monitor replies on viral tweets from popular accounts.
-//    Spam bots reply-bomb these tweets — we catch them in the act.
-// 3. SEARCH (optional, off by default): Keyword search via scraper/API.
-//    Subject to Twitter's content filtering but still catches obvious ones.
+// 1. TWEET SEARCH: Search for tweets containing spam keywords/phrases.
+//    Each tweet author becomes a candidate for analysis.
+// 2. PROFILE SEARCH: Search for profiles with spam-pattern bios.
+//    Directly finds accounts promoting adult/scam content.
+// 3. NETWORK EXPANSION: When a confirmed bot is found, crawl who they
+//    follow to find more bots in the same ring (best-effort, may 404).
+//
+// What works reliably with the twitter-scraper + cookie auth:
+//   - searchTweets, searchProfiles, getProfile, getTweets
+// What is broken (GraphQL hash rotation, known issue #165):
+//   - getFollowers, getFollowing (intermittent 404s)
 
 import 'dotenv/config';
 import { loadConfig } from './config.js';
@@ -21,8 +26,7 @@ import {
   computeScore,
 } from './detectors.js';
 
-// Counters for the summary
-const stats = { added: 0, reviewed: 0, skipped: 0, alreadyKnown: 0 };
+const stats = { added: 0, reviewed: 0, skipped: 0, alreadyKnown: 0, errors: 0 };
 
 async function main() {
   const config = loadConfig();
@@ -36,11 +40,9 @@ async function main() {
   const db = new Database(config.supabaseUrl, config.supabaseKey, config.crawlerUserId);
 
   console.log('BlockItAll Crawler');
-  console.log(`Twitter auth: cookies=${config.twitterAuthToken ? '✓ set' : '✗ not set'}, username=${config.twitterUsername ? '✓ set' : '✗ not set'}`);
-  console.log(`Target list: ${config.targetListSlug}`);
-  console.log(`Thresholds: auto-approve=${config.autoApproveThreshold}, review=${config.reviewThreshold}`);
-  console.log(`Scan limit: ${config.scanLimit}`);
-  console.log(`Modes: graph=${config.enableGraphCrawl}, replies=${config.enableReplyScan}, search=${config.enableSearch}`);
+  console.log(`Auth: cookies=${config.twitterAuthToken ? 'yes' : 'no'}, username=${config.twitterUsername ? 'yes' : 'no'}`);
+  console.log(`Thresholds: auto=${config.autoApproveThreshold}, review=${config.reviewThreshold}`);
+  console.log(`Scan limit: ${config.scanLimit}, delay: ${config.delayMs}ms`);
   if (config.dryRun) console.log('** DRY RUN — no database writes **');
   console.log('---');
 
@@ -54,204 +56,112 @@ async function main() {
     );
   }
 
-  // Collect all candidate handles we've already seen (to avoid re-processing)
-  let existingHandles = new Set();
-  const candidates = new Map(); // handle -> { profile, tweets }
+  // candidates: handle -> { profile, tweets }
+  const candidates = new Map();
 
   // -------------------------------------------------------------------------
-  // Phase 1: Graph Crawl — start from seed accounts, explore their network
+  // Phase 1: Tweet Search — find spam tweets, collect their authors
   // -------------------------------------------------------------------------
-  if (config.enableGraphCrawl) {
-    console.log('\n=== Phase 1: Graph Crawl ===');
+  console.log('\n=== Phase 1: Tweet Search ===');
 
-    // Build seed list: env-provided seeds + recent auto-blocked accounts from DB
-    const seeds = [...config.seedAccounts];
-    if (!config.dryRun) {
-      const dbSeeds = await db.getSeedHandles(30);
-      for (const s of dbSeeds) {
-        if (!seeds.includes(s.handle)) seeds.push(s.handle);
-      }
-    }
+  const tweetQueries = [
+    'onlyfans link in bio',
+    'fansly subscribe',
+    'free nudes dm',
+    'check my bio 18+',
+    'mdni link',
+    'findom paypig',
+    'link in bio nsfw',
+    'link in bio 🔞',
+    'dm for the link onlyfans',
+    'cum tribute dm',
+    'full video in bio',
+    'click my link 18+',
+    'premium snap free',
+    'subscribe to my onlyfans',
+  ];
 
-    if (seeds.length === 0) {
-      console.log('No seed accounts available. Set SEED_ACCOUNTS env var or run search mode first.');
-    } else {
-      console.log(`Starting from ${seeds.length} seed accounts`);
+  for (const query of tweetQueries) {
+    if (candidates.size >= config.scanLimit) break;
 
-      // BFS crawl through the network
-      const visited = new Set();
-      const queue = seeds.map(handle => ({ handle, depth: 0 }));
+    console.log(`  Searching tweets: "${query}"...`);
+    try {
+      const tweets = await twitter.searchTweets(query, 30);
+      let added = 0;
 
-      while (queue.length > 0 && candidates.size < config.scanLimit) {
-        const { handle, depth } = queue.shift();
-        if (visited.has(handle)) continue;
-        visited.add(handle);
-
-        console.log(`  Crawling @${handle} (depth ${depth})...`);
-
-        // Get the profile
-        const profile = await twitter.getProfile(handle);
-        if (!profile) {
-          console.log(`    Could not fetch profile, skipping`);
-          continue;
-        }
-
-        // Add as candidate for analysis (including seeds at depth 0)
+      for (const tweet of tweets) {
+        const handle = tweet.authorHandle;
+        if (!handle) continue;
         if (!candidates.has(handle)) {
-          candidates.set(handle, { profile, tweets: [] });
+          candidates.set(handle, { profile: null, tweets: [] });
+          added++;
         }
-
-        // Don't go deeper than maxDepth
-        if (depth >= config.maxDepth) continue;
-
-        // Get followers and following — these are the network to explore
-        try {
-          const followers = await twitter.getFollowers(profile.id, 100);
-          console.log(`    Found ${followers.length} followers`);
-          for (const f of followers) {
-            if (!visited.has(f.username) && candidates.size + queue.length < config.scanLimit * 2) {
-              // Quick pre-filter: only queue accounts that look suspicious from profile alone
-              const quickScore = quickProfileCheck(f);
-              if (quickScore > 0.2) {
-                candidates.set(f.username, { profile: f, tweets: [] });
-                queue.push({ handle: f.username, depth: depth + 1 });
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`    Failed to get followers: ${err.message}`);
-        }
-
-        try {
-          const following = await twitter.getFollowing(profile.id, 100);
-          console.log(`    Found ${following.length} following`);
-          for (const f of following) {
-            if (!visited.has(f.username) && candidates.size + queue.length < config.scanLimit * 2) {
-              const quickScore = quickProfileCheck(f);
-              if (quickScore > 0.2) {
-                candidates.set(f.username, { profile: f, tweets: [] });
-                queue.push({ handle: f.username, depth: depth + 1 });
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`    Failed to get following: ${err.message}`);
-        }
+        candidates.get(handle).tweets.push(tweet);
       }
 
-      console.log(`Graph crawl found ${candidates.size} candidates`);
+      console.log(`    ${tweets.length} tweets, ${added} new authors`);
+    } catch (err) {
+      console.warn(`    Failed: ${err.message}`);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Phase 2: Follower Scan — scan followers of popular accounts for spam bots.
-  // Spam bots follow big accounts to appear legitimate. We grab recent followers
-  // and run them through the quick profile check.
-  // -------------------------------------------------------------------------
-  if (config.enableReplyScan && candidates.size < config.scanLimit) {
-    console.log('\n=== Phase 2: Follower Scan ===');
-
-    for (const targetHandle of config.replyTargetAccounts) {
-      if (candidates.size >= config.scanLimit) break;
-
-      console.log(`  Scanning followers of @${targetHandle}...`);
-
-      try {
-        const targetProfile = await twitter.getProfile(targetHandle);
-        if (!targetProfile) {
-          console.log(`    Could not fetch profile, skipping`);
-          continue;
-        }
-
-        // Grab recent followers — spam bots are often among the newest followers
-        const followers = await twitter.getFollowers(targetProfile.id, 100);
-        console.log(`    Found ${followers.length} followers`);
-
-        let added = 0;
-        for (const f of followers) {
-          if (!f.username || candidates.has(f.username)) continue;
-          const quickScore = quickProfileCheck(f);
-          if (quickScore > 0.2) {
-            candidates.set(f.username, { profile: f, tweets: [] });
-            added++;
-          }
-        }
-        console.log(`    ${added} suspicious profiles queued`);
-
-        // Also check who the target's recent followers follow (one hop)
-        // This catches bot rings that follow the same set of big accounts
-        const following = await twitter.getFollowing(targetProfile.id, 50);
-        console.log(`    Found ${following.length} following`);
-        for (const f of following) {
-          if (!f.username || candidates.has(f.username)) continue;
-          const quickScore = quickProfileCheck(f);
-          if (quickScore > 0.2) {
-            candidates.set(f.username, { profile: f, tweets: [] });
-          }
-        }
-      } catch (err) {
-        console.warn(`  Failed to scan @${targetHandle}: ${err.message}`);
-      }
-    }
-
-    console.log(`After follower scan: ${candidates.size} total candidates`);
-  }
+  console.log(`After tweet search: ${candidates.size} candidates`);
 
   // -------------------------------------------------------------------------
-  // Phase 3: Search (optional, off by default)
+  // Phase 2: Profile Search — search for profiles with spam-pattern bios
   // -------------------------------------------------------------------------
-  if (config.enableSearch && candidates.size < config.scanLimit) {
-    console.log('\n=== Phase 3: Search ===');
+  if (candidates.size < config.scanLimit) {
+    console.log('\n=== Phase 2: Profile Search ===');
 
-    const searchQueries = [
-      'onlyfans link in bio -is:retweet',
-      'fansly subscribe -is:retweet',
-      'free nudes dm -is:retweet',
-      'chudai video -is:retweet',
-      'desi bhabhi sex -is:retweet',
-      'cum tribute dm -is:retweet',
-      'check my bio 18+ -is:retweet',
-      'mdni link -is:retweet',
-      'findom paypig -is:retweet',
-      'link in bio nsfw -is:retweet',
-      'link in bio 🔞 -is:retweet',
-      'queen of spades ♠️ -is:retweet',
-      'wataa video -is:retweet',
-      'feet pics dm -is:retweet',
+    const profileQueries = [
+      'onlyfans link',
+      'fansly 18+',
+      'dm for collab nsfw',
+      'findom goddess',
+      'free trial onlyfans',
+      'premium content 🔞',
+      'subscribe fans',
+      'adult content creator',
     ];
 
-    for (const query of searchQueries) {
+    for (const query of profileQueries) {
       if (candidates.size >= config.scanLimit) break;
 
-      console.log(`  Searching: "${query}"...`);
+      console.log(`  Searching profiles: "${query}"...`);
       try {
-        const tweets = await twitter.searchTweets(query, 50);
+        const profiles = await twitter.searchProfiles(query, 30);
+        let added = 0;
 
-        for (const tweet of tweets) {
-          const handle = tweet.authorHandle;
-          if (!handle) continue;
-          if (!candidates.has(handle)) {
-            candidates.set(handle, { profile: null, tweets: [] });
-          }
-          candidates.get(handle).tweets.push(tweet);
+        for (const profile of profiles) {
+          if (!profile.username || candidates.has(profile.username)) continue;
+          candidates.set(profile.username, { profile, tweets: [] });
+          added++;
         }
+
+        console.log(`    ${profiles.length} profiles, ${added} new candidates`);
       } catch (err) {
-        console.error(`  Search failed for "${query}": ${err.message}`);
+        console.warn(`    Failed: ${err.message}`);
       }
     }
 
-    console.log(`After search: ${candidates.size} total candidates`);
+    console.log(`After profile search: ${candidates.size} candidates`);
   }
 
   // -------------------------------------------------------------------------
-  // Analysis phase — run detectors on all candidates
+  // Phase 3: Network Expansion — crawl following lists of confirmed bots
+  // (best-effort, getFollowing may 404 due to GraphQL hash rotation)
+  // -------------------------------------------------------------------------
+  // We'll do this after the analysis phase — only expand from confirmed bots.
+
+  // -------------------------------------------------------------------------
+  // Analysis — run detectors on all candidates
   // -------------------------------------------------------------------------
   console.log(`\n=== Analysis: ${candidates.size} candidates ===`);
 
   // Filter out accounts already in the database
+  let existingHandles = new Set();
   const allHandles = [...candidates.keys()];
   if (!config.dryRun && allHandles.length > 0) {
-    // Batch check in chunks of 100
     for (let i = 0; i < allHandles.length; i += 100) {
       const chunk = allHandles.slice(i, i + 100);
       const existing = await db.getExistingHandles(chunk);
@@ -260,13 +170,16 @@ async function main() {
     console.log(`${existingHandles.size} already in database, skipping`);
   }
 
+  // Track confirmed bots for network expansion
+  const confirmedBots = [];
+
   for (const [handle, candidate] of candidates) {
     if (existingHandles.has(handle)) {
       stats.alreadyKnown++;
       continue;
     }
 
-    // Fetch profile if we don't have it (e.g. found via reply scan)
+    // Fetch profile if we don't have it (found via tweet search)
     let profile = candidate.profile;
     if (!profile) {
       profile = await twitter.getProfile(handle);
@@ -283,7 +196,7 @@ async function main() {
         const fetched = await twitter.getUserTweets(handle, 20);
         tweets = [...tweets, ...fetched];
       } catch {
-        // Non-fatal — analyze with what we have
+        // Non-fatal
       }
     }
 
@@ -298,7 +211,6 @@ async function main() {
 
     const { score, reasons } = computeScore(detectorResults);
 
-    // Determine action based on score
     if (score >= config.reviewThreshold) {
       const status = score >= config.autoApproveThreshold ? 'active' : 'under_review';
       const label = status === 'active' ? 'AUTO-BLOCK' : 'REVIEW';
@@ -317,72 +229,125 @@ async function main() {
             detectorResults,
           }, listId);
 
-          if (status === 'active') stats.added++;
-          else stats.reviewed++;
+          if (status === 'active') {
+            stats.added++;
+            confirmedBots.push({ handle, profile });
+          } else {
+            stats.reviewed++;
+          }
         } catch (err) {
-          console.error(`  Failed to add @${handle}: ${err.message}`);
+          console.error(`  DB error for @${handle}: ${err.message}`);
+          stats.errors++;
         }
       } else {
-        if (status === 'active') stats.added++;
-        else stats.reviewed++;
+        if (status === 'active') {
+          stats.added++;
+          confirmedBots.push({ handle, profile });
+        } else {
+          stats.reviewed++;
+        }
       }
     } else {
       stats.skipped++;
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Phase 3: Network Expansion (best-effort)
+  // -------------------------------------------------------------------------
+  if (confirmedBots.length > 0 && config.enableNetworkExpansion) {
+    console.log(`\n=== Phase 3: Network Expansion (${confirmedBots.length} confirmed bots) ===`);
+    console.log('  (best-effort — getFollowing may 404 due to Twitter API changes)');
+
+    const networkCandidates = new Map();
+
+    for (const bot of confirmedBots.slice(0, 10)) {
+      if (!bot.profile?.id) continue;
+
+      try {
+        const following = await twitter.getFollowing(bot.profile.id, 50);
+        console.log(`  @${bot.handle} follows ${following.length} accounts`);
+
+        for (const f of following) {
+          if (!f.username || candidates.has(f.username) || existingHandles.has(f.username)) continue;
+          if (!networkCandidates.has(f.username)) {
+            networkCandidates.set(f.username, { profile: f, tweets: [] });
+          }
+        }
+      } catch (err) {
+        console.warn(`  getFollowing failed for @${bot.handle}: ${err.message}`);
+        // Expected — getFollowing has intermittent 404s. Just skip.
+        break; // If one fails, they'll all fail, don't waste time
+      }
+    }
+
+    if (networkCandidates.size > 0) {
+      console.log(`  Found ${networkCandidates.size} network candidates, analyzing...`);
+
+      for (const [handle, candidate] of networkCandidates) {
+        const profile = candidate.profile;
+        let tweets = [];
+        try {
+          tweets = await twitter.getUserTweets(handle, 10);
+        } catch { /* non-fatal */ }
+
+        const detectorResults = {
+          bioKeywords: bioKeywords(profile),
+          displayNameSignals: displayNameSignals(profile),
+          linkAnalysis: linkAnalysis(profile, tweets),
+          tweetPatterns: tweetPatterns(tweets),
+          replySpam: replySpam(tweets),
+        };
+
+        const { score, reasons } = computeScore(detectorResults);
+
+        if (score >= config.reviewThreshold) {
+          const status = score >= config.autoApproveThreshold ? 'active' : 'under_review';
+          const label = status === 'active' ? 'AUTO-BLOCK' : 'REVIEW';
+
+          console.log(`  [${label}] @${handle} (score: ${score.toFixed(2)}) — ${reasons.join('; ')}`);
+
+          if (!config.dryRun) {
+            try {
+              await db.addDetectedAccount({
+                handle,
+                twitterId: profile.id,
+                displayName: profile.name,
+                score,
+                reasons,
+                status,
+                detectorResults,
+              }, listId);
+
+              if (status === 'active') stats.added++;
+              else stats.reviewed++;
+            } catch (err) {
+              console.error(`  DB error for @${handle}: ${err.message}`);
+              stats.errors++;
+            }
+          } else {
+            if (status === 'active') stats.added++;
+            else stats.reviewed++;
+          }
+        } else {
+          stats.skipped++;
+        }
+      }
+    } else {
+      console.log('  No network candidates found (getFollowing may be down)');
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Summary
+  // -------------------------------------------------------------------------
   console.log('\n--- Results ---');
   console.log(`Auto-blocked: ${stats.added}`);
   console.log(`Sent to review: ${stats.reviewed}`);
   console.log(`Skipped (low score): ${stats.skipped}`);
   console.log(`Already known: ${stats.alreadyKnown}`);
-  console.log(`Total requests: ${twitter.requestCount}`);
-}
-
-/**
- * Quick pre-filter for graph crawl — checks profile fields only (no API calls).
- * Returns a rough score 0-1 to decide if an account is worth fully analyzing.
- * This avoids wasting API calls on obviously-clean accounts in the network.
- */
-function quickProfileCheck(profile) {
-  let signals = 0;
-
-  const bio = (profile.description || '').toLowerCase();
-  const name = (profile.name || '').toLowerCase();
-
-  // Bio keyword check (simplified — just check a few strong signals)
-  const strongSignals = [
-    'onlyfans', 'fansly', 'link in bio', 'mdni', 'dm me', '18+',
-    'nsfw', 'findom', 'free nudes', 'subscribe', 'premium',
-    'chudai', 'wataa', 'bhabhi', 'desi sex',
-  ];
-  if (strongSignals.some(kw => bio.includes(kw))) signals += 2;
-
-  // Name keyword check
-  if (strongSignals.some(kw => name.includes(kw))) signals += 2;
-
-  // Sensitive flag from Twitter
-  if (profile.possiblySensitive) signals += 1;
-
-  // Spam emoji in bio or name
-  const spamEmoji = ['🔞', '♠️', '🍑', '🍆', '💦'];
-  const fullText = (profile.description || '') + (profile.name || '');
-  if (spamEmoji.some(e => fullText.includes(e))) signals += 1;
-
-  // Suspicious follower ratios (new account farming)
-  if (profile.followingCount > 0 && profile.followersCount > 0) {
-    const ratio = profile.followingCount / profile.followersCount;
-    if (ratio > 10) signals += 1; // following way more than followers
-  }
-
-  // Very new account with lots of tweets (bot behavior)
-  if (profile.createdAt) {
-    const ageMs = Date.now() - new Date(profile.createdAt).getTime();
-    const ageDays = ageMs / (1000 * 60 * 60 * 24);
-    if (ageDays < 90 && profile.tweetCount > 500) signals += 1;
-  }
-
-  return Math.min(signals / 4, 1.0); // normalize to 0-1
+  if (stats.errors > 0) console.log(`Errors: ${stats.errors}`);
+  console.log(`Total API requests: ${twitter.requestCount}`);
 }
 
 main().catch(err => {

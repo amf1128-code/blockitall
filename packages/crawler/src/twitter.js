@@ -193,8 +193,30 @@ export class TwitterClient {
   }
 
   // ---------------------------------------------------------------------------
-  // Search — optional, used when enabled (subject to API filtering)
+  // Search — primary discovery method
   // ---------------------------------------------------------------------------
+
+  /**
+   * Search for profiles matching a query string.
+   * Great for finding spam accounts by bio keywords.
+   */
+  async searchProfiles(query, limit = 50) {
+    this.requestCount++;
+    try {
+      const scraper = await this._getScraper();
+      const profiles = [];
+      for await (const profile of scraper.searchProfiles(query, limit)) {
+        const normalized = this._normalizeProfile(profile);
+        if (normalized.username) profiles.push(normalized);
+        if (profiles.length >= limit) break;
+      }
+      await this._delay();
+      return profiles;
+    } catch (err) {
+      console.warn(`  Scraper searchProfiles failed for "${query}": ${err.message}`);
+      return [];
+    }
+  }
 
   async searchTweets(query, limit = 50) {
     this.requestCount++;
