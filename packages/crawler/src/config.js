@@ -29,6 +29,13 @@ export function loadConfig() {
     // Default seeds are hardcoded; env var adds additional ones.
     seedAccounts: [
       'saifisntsafefw',
+      'teamhojabiworld',
+      'misslexa_ph',
+      'vixly__',
+      'livvyalex',
+      'jasmine_baanks',
+      'ruine_d0ll',
+      'gooneddummy',
       ...parseSeedAccounts(process.env.SEED_ACCOUNTS),
     ],
 
