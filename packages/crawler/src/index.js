@@ -96,8 +96,8 @@ async function main() {
           continue;
         }
 
-        // If this isn't already a known seed, add as candidate for analysis
-        if (depth > 0 && !candidates.has(handle)) {
+        // Add as candidate for analysis (including seeds at depth 0)
+        if (!candidates.has(handle)) {
           candidates.set(handle, { profile, tweets: [] });
         }
 
@@ -144,42 +144,49 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // Phase 2: Reply Scan — scan replies on viral tweets for spam
+  // Phase 2: Follower Scan — scan followers of popular accounts for spam bots.
+  // Spam bots follow big accounts to appear legitimate. We grab recent followers
+  // and run them through the quick profile check.
   // -------------------------------------------------------------------------
   if (config.enableReplyScan && candidates.size < config.scanLimit) {
-    console.log('\n=== Phase 2: Reply Scan ===');
+    console.log('\n=== Phase 2: Follower Scan ===');
 
     for (const targetHandle of config.replyTargetAccounts) {
       if (candidates.size >= config.scanLimit) break;
 
-      console.log(`  Checking replies on @${targetHandle}'s recent tweets...`);
+      console.log(`  Scanning followers of @${targetHandle}...`);
 
       try {
-        // Get recent tweets from the target account
-        const targetTweets = await twitter.getUserTweets(targetHandle, 5);
+        const targetProfile = await twitter.getProfile(targetHandle);
+        if (!targetProfile) {
+          console.log(`    Could not fetch profile, skipping`);
+          continue;
+        }
 
-        // Find the most-engaged tweets (most likely to have spam replies)
-        const sorted = targetTweets
-          .filter(t => !t.isReply)
-          .sort((a, b) => (b.likeCount + b.retweetCount) - (a.likeCount + a.retweetCount));
+        // Grab recent followers — spam bots are often among the newest followers
+        const followers = await twitter.getFollowers(targetProfile.id, 100);
+        console.log(`    Found ${followers.length} followers`);
 
-        // Scan replies on top 2 tweets
-        for (const tweet of sorted.slice(0, 2)) {
-          if (candidates.size >= config.scanLimit) break;
+        let added = 0;
+        for (const f of followers) {
+          if (!f.username || candidates.has(f.username)) continue;
+          const quickScore = quickProfileCheck(f);
+          if (quickScore > 0.2) {
+            candidates.set(f.username, { profile: f, tweets: [] });
+            added++;
+          }
+        }
+        console.log(`    ${added} suspicious profiles queued`);
 
-          console.log(`    Scanning replies on tweet ${tweet.id} (${tweet.likeCount} likes)...`);
-          const replies = await twitter.getTweetReplies(tweet.id, config.replyPageSize);
-          console.log(`    Found ${replies.length} replies`);
-
-          // Collect unique repliers and their reply tweets
-          for (const reply of replies) {
-            const handle = reply.authorHandle;
-            if (!handle || handle === targetHandle) continue;
-
-            if (!candidates.has(handle)) {
-              candidates.set(handle, { profile: null, tweets: [] });
-            }
-            candidates.get(handle).tweets.push(reply);
+        // Also check who the target's recent followers follow (one hop)
+        // This catches bot rings that follow the same set of big accounts
+        const following = await twitter.getFollowing(targetProfile.id, 50);
+        console.log(`    Found ${following.length} following`);
+        for (const f of following) {
+          if (!f.username || candidates.has(f.username)) continue;
+          const quickScore = quickProfileCheck(f);
+          if (quickScore > 0.2) {
+            candidates.set(f.username, { profile: f, tweets: [] });
           }
         }
       } catch (err) {
@@ -187,7 +194,7 @@ async function main() {
       }
     }
 
-    console.log(`After reply scan: ${candidates.size} total candidates`);
+    console.log(`After follower scan: ${candidates.size} total candidates`);
   }
 
   // -------------------------------------------------------------------------

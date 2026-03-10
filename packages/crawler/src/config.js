@@ -40,9 +40,9 @@ export function loadConfig() {
     // The crawler will explore their followers/following to find more.
     // Default seeds are hardcoded; env var adds additional ones.
     seedAccounts: [
-      // Rotate seeds regularly — suspended/deleted accounts waste API calls.
-      // These are active spam-type accounts discovered from network crawling.
-      // Add new seeds via SEED_ACCOUNTS env var without code changes.
+      // Hardcoded fallback seeds — ensures the crawler always has something to start with.
+      // Add more via SEED_ACCOUNTS env var. Rotate regularly as accounts get suspended.
+      'saifisntsafefw',
       ...parseSeedAccounts(process.env.SEED_ACCOUNTS),
     ],
 
