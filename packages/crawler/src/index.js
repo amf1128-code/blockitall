@@ -28,6 +28,8 @@ async function main() {
   const config = loadConfig();
   const twitter = new TwitterClient({
     bearerToken: config.twitterBearerToken,
+    twitterUsername: config.twitterUsername,
+    twitterPassword: config.twitterPassword,
     delayMs: config.delayMs,
   });
   const db = new Database(config.supabaseUrl, config.supabaseKey);

@@ -1,32 +1,50 @@
 // Twitter client — scraper-first approach with API fallback.
-// Uses twitter-scraper (guest tokens, no auth required) for discovery,
-// and falls back to the official API v2 when a bearer token is available.
+// Uses twitter-scraper with account login (guest tokens no longer work).
+// Falls back to the official API v2 when a bearer token is available.
 
 /**
  * TwitterClient wraps both scraping and API-based access to Twitter.
  *
- * Scraping bypasses search censorship and shadowban filtering — we see
- * what real users see, including accounts that the API hides.
+ * The scraper requires Twitter account credentials (username + password)
+ * since X/Twitter disabled guest token access in 2024.
  *
  * The official API is used as a fallback for rate-limited or failed scrapes.
  */
 export class TwitterClient {
-  constructor({ bearerToken = null, delayMs = 3000 } = {}) {
+  constructor({ bearerToken = null, twitterUsername = null, twitterPassword = null, delayMs = 3000 } = {}) {
     this.bearerToken = bearerToken;
+    this.twitterUsername = twitterUsername;
+    this.twitterPassword = twitterPassword;
     this.delayMs = delayMs;
     this.requestCount = 0;
     this._scraper = null;
+    this._loggedIn = false;
   }
 
   /**
-   * Lazy-init the scraper. We use the `@the-convocation/twitter-scraper`
-   * package which uses guest tokens — no auth needed, no API limits,
-   * and crucially: no content filtering.
+   * Lazy-init the scraper with login.
+   * X/Twitter killed guest tokens — the scraper must log in with
+   * real credentials to access profiles, followers, and tweets.
    */
   async _getScraper() {
-    if (this._scraper) return this._scraper;
+    if (this._scraper && this._loggedIn) return this._scraper;
     const { Scraper } = await import('@the-convocation/twitter-scraper');
     this._scraper = new Scraper();
+
+    if (this.twitterUsername && this.twitterPassword) {
+      try {
+        await this._scraper.login(this.twitterUsername, this.twitterPassword);
+        this._loggedIn = true;
+        console.log('  Scraper logged in successfully');
+      } catch (err) {
+        console.warn(`  Scraper login failed: ${err.message}`);
+        console.warn('  Falling back to API-only mode');
+      }
+    } else {
+      console.warn('  No Twitter credentials provided — scraper will not work.');
+      console.warn('  Set TWITTER_USERNAME and TWITTER_PASSWORD in .env');
+    }
+
     return this._scraper;
   }
 
