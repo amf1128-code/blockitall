@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlockItAll</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>BlockItAll</h1>
+      <span id="version" class="version"></span>
+    </header>
+
+    <!-- Connection Status -->
+    <section id="connection-status" class="status-bar disconnected">
+      <span class="status-dot"></span>
+      <span id="connection-text">Checking Twitter connection...</span>
+    </section>
+
+    <!-- Setup Section (shown when no API URL configured) -->
+    <section id="setup-section" class="section hidden">
+      <h2>Setup</h2>
+      <p>Enter your BlockItAll API URL to get started.</p>
+      <div class="input-group">
+        <input type="url" id="api-url-input" placeholder="https://your-project.supabase.co/functions/v1/lists">
+        <button id="save-api-url" class="btn btn-primary">Save</button>
+      </div>
+      <p id="api-url-error" class="error hidden"></p>
+    </section>
+
+    <!-- Main Content (shown after setup) -->
+    <section id="main-content" class="hidden">
+      <!-- Available Lists -->
+      <section class="section">
+        <div class="section-header">
+          <h2>Block Lists</h2>
+          <button id="refresh-lists" class="btn btn-sm" title="Refresh lists">↻</button>
+        </div>
+        <div id="lists-container">
+          <p class="muted">Loading lists...</p>
+        </div>
+      </section>
+
+      <!-- Sync & Block Controls -->
+      <section id="block-controls" class="section hidden">
+        <h2>Sync & Block</h2>
+        <div id="sync-status" class="muted">No lists subscribed</div>
+        <div class="controls-row">
+          <button id="sync-btn" class="btn btn-primary" disabled>Sync Lists</button>
+          <button id="block-btn" class="btn btn-danger" disabled>Block All</button>
+        </div>
+        <div class="controls-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="dry-run-toggle">
+            Dry run (don't actually block)
+          </label>
+        </div>
+        <div id="progress-section" class="hidden">
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <div id="progress-text" class="muted"></div>
+        </div>
+      </section>
+
+      <!-- Debug Log -->
+      <section class="section">
+        <div class="section-header">
+          <h2>Log</h2>
+          <button id="clear-log" class="btn btn-sm">Clear</button>
+        </div>
+        <div id="log-container" class="log-container">
+          <p class="muted">No activity yet</p>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="section">
+        <details>
+          <summary>Settings</summary>
+          <div class="settings-content">
+            <div class="input-group">
+              <label for="settings-api-url">API URL</label>
+              <input type="url" id="settings-api-url" placeholder="API URL">
+              <button id="update-api-url" class="btn btn-sm">Update</button>
+            </div>
+            <div class="controls-row">
+              <button id="clear-data" class="btn btn-sm btn-danger">Clear All Data</button>
+            </div>
+          </div>
+        </details>
+      </section>
+    </section>
+  </div>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
